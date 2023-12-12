@@ -1,0 +1,3 @@
+/mnt/Data/github/autonomic-farm/cmake-build-debug/CMakeFiles/farm.dir
+/mnt/Data/github/autonomic-farm/cmake-build-debug/CMakeFiles/edit_cache.dir
+/mnt/Data/github/autonomic-farm/cmake-build-debug/CMakeFiles/rebuild_cache.dir
