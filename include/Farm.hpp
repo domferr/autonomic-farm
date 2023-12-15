@@ -1,38 +1,94 @@
-//
-// Created by dferraro on 11/12/23.
-//
+#ifndef AUTONOMIC_FARM_FARM_HPP
+#define AUTONOMIC_FARM_FARM_HPP
 
-#ifndef FARM_H
-#define FARM_H
-
+#include "Node.hpp"
+#include "ThreadedNode.hpp"
+#include "trace.hpp"
 #include "Emitter.hpp"
-#include "Gatherer.hpp"
-#include "Worker.hpp"
-#include "BufferedNode.hpp"
-#include "AbstractFarm.hpp"
 
 template <typename InputType, typename OutputType>
-class Farm: public AbstractFarm<InputType, OutputType> {
+class Farm : public Node<InputType> {
 public:
-    typedef std::function<OutputType(InputType)> Fun;
-    typedef std::function<void(OutputType)> OutputFun;
+    typedef std::function<OutputType(InputType&)> WorkerFunType;
 
-    explicit Farm(int workers, const Fun& fun, const OutputFun& outputFun);
+    explicit Farm(size_t num_workers, const WorkerFunType &fun, const ThreadedNode<OutputType>::OnValueFun &sendOutFun);
+    explicit Farm(size_t num_workers, const WorkerFunType &fun, ThreadedNode<OutputType>* newGatherer);
 
-    using AbstractFarm<InputType, OutputType>::run;
-    using AbstractFarm<InputType, OutputType>::wait;
-    using AbstractFarm<InputType, OutputType>::send;
-    using AbstractFarm<InputType, OutputType>::notify_eos;
+    void run() override;
+    void wait() override;
+    void notify_eos() override;
+    void send(InputType& value) override;
+
+    virtual ~Farm();
+
+protected:
+    std::vector<ThreadedNode<InputType>> workers;
+    Emitter<InputType> emitter;
+    ThreadedNode<OutputType>* gatherer;
 };
 
 template<typename InputType, typename OutputType>
-Farm<InputType, OutputType>::Farm(int num_workers, const Fun &fun, const OutputFun &outputFun) {
-    this->gatherer = new Gatherer<OutputType, OutputFun>(outputFun);
-    this->workers = std::vector<AbstractNode<InputType>*>(num_workers);
+Farm<InputType, OutputType>::Farm(size_t num_workers, const Farm::WorkerFunType &fun, ThreadedNode<OutputType>* newGatherer)
+: gatherer(newGatherer) {
+    workers.reserve(num_workers);
     for (int i = 0; i < num_workers; ++i) {
-        this->workers[i] = new Worker<InputType, OutputType, Fun>(fun, this->gatherer);
+        TRACEF("Init worker %d/%lu", (i+1), num_workers);
+        auto worker = ThreadedNode<InputType>([this, &fun](InputType& value) {
+            OutputType res = fun(value);
+            return this->gatherer->send(res);
+        });
+        workers.emplace_back(std::move(worker));
     }
-    this->emitter = new Emitter<InputType>(this->workers);
+    emitter.setWorkers(&workers);
 }
 
-#endif //FARM_H
+template<typename InputType, typename OutputType>
+Farm<InputType, OutputType>::Farm(size_t num_workers, const WorkerFunType &fun, const ThreadedNode<OutputType>::OnValueFun &sendOutFun)
+: Farm<InputType, OutputType>::Farm(num_workers, fun, new ThreadedNode<OutputType>(sendOutFun)) {}
+
+template<typename InputType, typename OutputType>
+void Farm<InputType, OutputType>::run() {
+    TRACE("Run emitter");
+    emitter.run();
+    for (int i = 0; i < workers.size(); ++i) {
+        TRACEF("Run worker %d/%lu", (i+1), workers.size());
+        workers[i].run();
+    }
+    TRACE("Run gatherer");
+    gatherer->run();
+}
+
+template<typename InputType, typename OutputType>
+void Farm<InputType, OutputType>::wait() {
+    TRACE("Wait emitter");
+    emitter.wait();
+    TRACE("Emitter ended");
+    for (int i = 0; i < workers.size(); ++i) {
+        TRACEF("Wait worker %d/%lu", (i+1), workers.size());
+        workers[i].wait();
+        TRACEF("Worker %d ended", (i+1));
+    }
+    TRACE("Notify EOS to gatherer");
+    gatherer->notify_eos();
+    TRACE("Wait gatherer");
+    gatherer->wait();
+    TRACE("Gatherer ended");
+}
+
+template<typename InputType, typename OutputType>
+void Farm<InputType, OutputType>::notify_eos() {
+    emitter.notify_eos();
+}
+
+template<typename InputType, typename OutputType>
+void Farm<InputType, OutputType>::send(InputType& value) {
+    emitter.send(value);
+}
+
+template<typename InputType, typename OutputType>
+Farm<InputType, OutputType>::~Farm() {
+    delete gatherer;
+}
+
+
+#endif //AUTONOMIC_FARM_FARM_HPP

@@ -1,37 +1,41 @@
 //
-// Created by dferraro on 11/12/23.
+// Created by dferraro on 21/12/23.
 //
 
-#include <thread>
-#include "BufferedNode.hpp"
-#include "Worker.hpp"
-#include "Stream.hpp"
+#ifndef AUTONOMICFARM_EMITTER_HPP
+#define AUTONOMICFARM_EMITTER_HPP
 
-#ifndef EMITTER_H
-#define EMITTER_H
 
+#include "ThreadedNode.hpp"
+#include "trace.hpp"
 
 template <typename InputType>
-class Emitter : public BufferedNode<InputType> {
+class Emitter : public ThreadedNode<InputType> {
 public:
-    explicit Emitter(const std::vector<AbstractNode<InputType>*>& workers);
+    void setWorkers(std::vector<ThreadedNode<InputType>>* newWorkers) { this->workers = newWorkers; }
+    void onValue(InputType& value) override;
+    void onEOS() override;
 
 private:
-    void body(InputType) override;
-
-    std::vector<AbstractNode<InputType>*> workers;
-    int worker_index = 0;
+    std::vector<ThreadedNode<InputType>>* workers;
+    size_t worker_index{};
 };
 
 template<typename InputType>
-Emitter<InputType>::Emitter(const std::vector<AbstractNode<InputType>*>& workers) : workers(workers) {}
+void Emitter<InputType>::onValue(InputType& value) {
+    TRACEF("Send to worker %lu", worker_index);
+    workers->at(worker_index).send(value);
+    worker_index = (worker_index+1) % workers->size();
+}
 
 template<typename InputType>
-void Emitter<InputType>::body(InputType value) {
-    // round-robin
-    workers[worker_index]->send(value);
-    worker_index = (worker_index+1) % workers.size();
+void Emitter<InputType>::onEOS() {
+    // when the emitter reaches the end of its stream, it notifies EOS to every worker
+    for (int i = 0; i < workers->size(); ++i) {
+        TRACEF("Notify EOS to worker %d/%lu", (i+1), workers.size());
+        workers->at(i).notify_eos();
+    }
 }
 
 
-#endif //EMITTER_H
+#endif //AUTONOMICFARM_EMITTER_HPP
