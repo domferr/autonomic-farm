@@ -31,15 +31,14 @@ size_t numWorkers, const Farm<InputType, OutputType>::WorkerFunType &fun, const 
 
 template<typename InputType, typename OutputType>
 void MonitoredFarm<InputType, OutputType>::run() {
-    Farm<InputType, OutputType>::run();
     analytics.farm_start_time = std::chrono::system_clock::now();
+    Farm<InputType, OutputType>::run();
 }
 
 template<typename InputType, typename OutputType>
 void MonitoredFarm<InputType, OutputType>::send(InputType &value) {
     Farm<InputType, OutputType>::send(value);
-    auto now = std::chrono::system_clock::now();
-    STOP(analytics.farm_start_time, time);
+    STOP(analytics.farm_start_time, time, std::chrono::milliseconds);
     analytics.arrival_time.emplace_back(time);
 }
 

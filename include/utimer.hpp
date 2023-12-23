@@ -8,7 +8,8 @@
 #include <iomanip>
 
 #define START(timename) auto timename = std::chrono::system_clock::now()
-#define STOP(timename,elapsed) auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - timename).count()
+#define STOP(timename, elapsed, timeunit) auto elapsed = std::chrono::duration_cast<timeunit>(std::chrono::system_clock::now() - timename).count()
+#define ELAPSED(start, end, timeunit) std::chrono::duration_cast<timeunit>(end - start).count()
 
 class utimer {
 public:
