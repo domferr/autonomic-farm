@@ -26,7 +26,7 @@ bool Stream<InputType>::add(InputType& value) {
     {
         std::unique_lock lock(mutex);
         if (eosFlag) return false; // avoid adding new values after end of stream
-
+        // zero-copy communication
         queue.push(std::move(value));
     }
     cond_empty.notify_one();
