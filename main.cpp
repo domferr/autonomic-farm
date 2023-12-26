@@ -7,7 +7,6 @@
 #include "MonitoredFarm.hpp"
 #include "ProgramArgs.hpp"
 
-
 size_t active_wait(size_t& msec) {
     START(start_time);
     long elapsed_ms = 0;

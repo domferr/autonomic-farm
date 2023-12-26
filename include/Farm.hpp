@@ -5,6 +5,7 @@
 #include "ThreadedNode.hpp"
 #include "trace.hpp"
 #include "Emitter.hpp"
+#include "WorkerPool.hpp"
 
 template <typename InputType, typename OutputType>
 class Farm : public Node<InputType> {
@@ -22,25 +23,13 @@ public:
     virtual ~Farm();
 
 protected:
-    std::vector<ThreadedNode<InputType>> workers;
-    Emitter<InputType> emitter;
+    WorkerPool<InputType, OutputType> workers_pool;
     ThreadedNode<OutputType>* gatherer;
 };
 
 template<typename InputType, typename OutputType>
-Farm<InputType, OutputType>::Farm(size_t num_workers, const Farm::WorkerFunType &fun, ThreadedNode<OutputType>* newGatherer)
-: gatherer(newGatherer) {
-    workers.reserve(num_workers);
-    for (int i = 0; i < num_workers; ++i) {
-        TRACEF("Init worker %d/%lu", (i+1), num_workers);
-        auto worker = ThreadedNode<InputType>([this, &fun](InputType& value) {
-            OutputType res = fun(value);
-            return this->gatherer->send(res);
-        });
-        workers.emplace_back(std::move(worker));
-    }
-    emitter.setWorkers(&workers);
-}
+Farm<InputType, OutputType>::Farm(size_t num_workers, const WorkerFunType &fun, ThreadedNode<OutputType>* newGatherer)
+: gatherer(newGatherer), workers_pool(fun, num_workers, 0, num_workers, [newGatherer](auto val) { newGatherer->send(val); }) {}
 
 template<typename InputType, typename OutputType>
 Farm<InputType, OutputType>::Farm(size_t num_workers, const WorkerFunType &fun, const ThreadedNode<OutputType>::OnValueFun &sendOutFun)
@@ -48,41 +37,25 @@ Farm<InputType, OutputType>::Farm(size_t num_workers, const WorkerFunType &fun, 
 
 template<typename InputType, typename OutputType>
 void Farm<InputType, OutputType>::run() {
-    TRACE("Run emitter");
-    emitter.run();
-    for (int i = 0; i < workers.size(); ++i) {
-        TRACEF("Run worker %d/%lu", (i+1), workers.size());
-        workers[i].run();
-    }
-    TRACE("Run gatherer");
+    workers_pool.run();
     gatherer->run();
 }
 
 template<typename InputType, typename OutputType>
 void Farm<InputType, OutputType>::wait() {
-    TRACE("Wait emitter");
-    emitter.wait();
-    TRACE("Emitter ended");
-    for (int i = 0; i < workers.size(); ++i) {
-        TRACEF("Wait worker %d/%lu", (i+1), workers.size());
-        workers[i].wait();
-        TRACEF("Worker %d ended", (i+1));
-    }
-    TRACE("Notify EOS to gatherer");
+    workers_pool.wait();
     gatherer->notify_eos();
-    TRACE("Wait gatherer");
     gatherer->wait();
-    TRACE("Gatherer ended");
 }
 
 template<typename InputType, typename OutputType>
 void Farm<InputType, OutputType>::notify_eos() {
-    emitter.notify_eos();
+    workers_pool.notify_eos();
 }
 
 template<typename InputType, typename OutputType>
 void Farm<InputType, OutputType>::send(InputType& value) {
-    emitter.send(value);
+    workers_pool.send(value);
 }
 
 template<typename InputType, typename OutputType>
