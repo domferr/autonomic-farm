@@ -4,16 +4,17 @@
 #include "Node.hpp"
 #include "ThreadedNode.hpp"
 #include "trace.hpp"
-#include "Emitter.hpp"
-#include "WorkerPool.hpp"
+#include "NodePool.hpp"
 
 template <typename InputType, typename OutputType>
 class Farm : public Node<InputType> {
 public:
-    typedef std::function<OutputType(InputType&)> WorkerFunType;
+    // function executed by a worker. It takes a reference to an input item, computes and produces a new item
+    using WorkerFunType = std::function<OutputType(InputType&)>;
+    // function executed by the gatherer to output all the results from the workers
+    using SendOutFunType = std::function<void(OutputType&)>;
 
-    explicit Farm(size_t num_workers, const WorkerFunType &fun, const ThreadedNode<OutputType>::OnValueFun &sendOutFun);
-    explicit Farm(size_t num_workers, const WorkerFunType &fun, ThreadedNode<OutputType>* newGatherer);
+    explicit Farm(size_t num_workers, const WorkerFunType &fun, const SendOutFunType &sendOutFun);
 
     void run() override;
     void wait() override;
@@ -23,43 +24,47 @@ public:
     virtual ~Farm();
 
 protected:
-    WorkerPool<InputType, OutputType> workers_pool;
-    ThreadedNode<OutputType>* gatherer;
+    Farm() = default;
+
+    Node<InputType>* workers_pool;
+    Node<OutputType>* gatherer;
 };
 
 template<typename InputType, typename OutputType>
-Farm<InputType, OutputType>::Farm(size_t num_workers, const WorkerFunType &fun, ThreadedNode<OutputType>* newGatherer)
-: gatherer(newGatherer), workers_pool(fun, num_workers, 0, num_workers, [newGatherer](auto val) { newGatherer->send(val); }) {}
-
-template<typename InputType, typename OutputType>
-Farm<InputType, OutputType>::Farm(size_t num_workers, const WorkerFunType &fun, const ThreadedNode<OutputType>::OnValueFun &sendOutFun)
-: Farm<InputType, OutputType>::Farm(num_workers, fun, new ThreadedNode<OutputType>(sendOutFun)) {}
+Farm<InputType, OutputType>::Farm(size_t num_workers, const WorkerFunType &fun, const SendOutFunType &sendOutFun) {
+    gatherer = new ThreadedNode<OutputType>(sendOutFun);
+    workers_pool = new NodePool(num_workers, [this, &fun](auto val) { 
+        auto res = fun(val);
+        gatherer->send(res); 
+    });
+}
 
 template<typename InputType, typename OutputType>
 void Farm<InputType, OutputType>::run() {
-    workers_pool.run();
+    workers_pool->run();
     gatherer->run();
 }
 
 template<typename InputType, typename OutputType>
 void Farm<InputType, OutputType>::wait() {
-    workers_pool.wait();
+    workers_pool->wait();
     gatherer->notify_eos();
     gatherer->wait();
 }
 
 template<typename InputType, typename OutputType>
 void Farm<InputType, OutputType>::notify_eos() {
-    workers_pool.notify_eos();
+    workers_pool->notify_eos();
 }
 
 template<typename InputType, typename OutputType>
 void Farm<InputType, OutputType>::send(InputType& value) {
-    workers_pool.send(value);
+    workers_pool->send(value);
 }
 
 template<typename InputType, typename OutputType>
 Farm<InputType, OutputType>::~Farm() {
+    delete workers_pool;
     delete gatherer;
 }
 

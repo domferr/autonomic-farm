@@ -16,11 +16,12 @@
 
 class farm_analytics {
 public:
-    std::chrono::system_clock::time_point farm_start_time;
+    std::chrono::system_clock::time_point farm_start_time; // timepoint when the farm's run method was called
     std::vector<std::pair<double, long>> throughput; // pair <timestamp, moving average throughput value>
     std::vector<std::pair<double, long>> throughput_points; // pair <timestamp, throughput value>
     std::vector<std::pair<double, long>> service_time; // pair <timestamp, moving average service time value>
     std::vector<std::pair<double, long>> service_time_points; // pair <timestamp, service time value>
+    std::vector<std::pair<size_t, long>> num_workers; // pair <timestamp, number of nodes>
     std::vector<long> arrival_time;
 
     void throughput_to_file(const char* root_dir, const char* basename, size_t num_workers, size_t stream_size) {
@@ -83,6 +84,19 @@ public:
         file << "servicetime" << CSV_DELIMITER << "time" << CSV_DELIMITER << "numworkers" << CSV_DELIMITER << "streamsize" << std::endl;
         for(auto& svt: service_time_points) {
             file << svt.first << CSV_DELIMITER << svt.second << CSV_DELIMITER << num_workers << CSV_DELIMITER << stream_size << std::endl;
+        }
+        file.close();
+        std::cout << "DONE!" << std::endl;
+    }
+
+    void num_workers_to_file(const char* root_dir, const char* basename, size_t curr_num_workers, size_t stream_size) {
+        std::ofstream file;
+        auto file_name = open(file, root_dir, basename, curr_num_workers, stream_size);
+
+        std::cout << "Writing number of workers data to " << file_name << "..." << std::flush;
+        file << "num_workers" << CSV_DELIMITER << "time" << CSV_DELIMITER << "numworkers" << CSV_DELIMITER << "streamsize" << std::endl;
+        for(auto& num: num_workers) {
+            file << num.first << CSV_DELIMITER << num.second << CSV_DELIMITER << curr_num_workers << CSV_DELIMITER << stream_size << std::endl;
         }
         file.close();
         std::cout << "DONE!" << std::endl;
