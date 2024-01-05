@@ -60,12 +60,13 @@ farm_analytics benchmark_farm(FarmType& farm, size_t stream_size,
  * @param args the program arguments
  */
 void analytics_to_csv(farm_analytics &analytics, program_args& args) {
-    analytics.throughput_to_file("csv", "throughput", args.num_workers, args.stream_size);
-    analytics.throughput_points_to_file("csv", "throughput_points", args.num_workers, args.stream_size);
-    analytics.arrivaltime_to_file("csv", "arrival_time", args.num_workers, args.stream_size);
-    analytics.servicetime_to_file("csv", "service_time", args.num_workers, args.stream_size);
-    analytics.servicetime_points_to_file("csv", "service_time_points", args.num_workers, args.stream_size);
-    analytics.num_workers_to_file("csv", "num_workers", args.num_workers, args.stream_size);
+    analytics.metadata_to_file("csv", "metadata", args);
+    analytics.throughput_to_file("csv", "throughput", args);
+    analytics.throughput_points_to_file("csv", "throughput_points", args);
+    analytics.arrivaltime_to_file("csv", "arrival_time", args);
+    analytics.servicetime_to_file("csv", "service_time", args);
+    analytics.servicetime_points_to_file("csv", "service_time_points", args);
+    analytics.num_workers_to_file("csv", "num_workers", args);
 }
 
 #endif //AUTONOMICFARM_BENCHMARK_HPP

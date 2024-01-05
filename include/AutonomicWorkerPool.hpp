@@ -66,7 +66,7 @@ private:
 
     // constants
     // minimum time needed to elapse before making a change in the number of workers
-    const long reaction_time_ms = 190; // ms
+    const long reaction_time_ms = 90; // ms
     const size_t service_time_window_size = 6;
 };
 
