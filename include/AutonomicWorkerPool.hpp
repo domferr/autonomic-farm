@@ -56,18 +56,19 @@ private:
 
     // the last time when the number of workers was correct based on the service time
     std::chrono::system_clock::time_point last_change;
-    // maximum service time error
-    double max_service_time_error = 1.0;
     // window of service times, used to perform linear regression
-    std::deque<double> service_time_window;
+    std::deque<std::pair<double, long>> service_time_window;
     // sum of all the service times in the window
-    double service_time_sum = 0.0;
-    double ssx = 0.0;
+    double window_service_time_sum = 0.0;
+    // sum of all the times in the window
+    double window_elapsed_time_sum = 0.0;
 
     // constants
     // minimum time needed to elapse before making a change in the number of workers
-    const long reaction_time_ms = 90; // ms
+    const long reaction_time_ms = 190; // ms
     const size_t service_time_window_size = 6;
+    // maximum service time error
+    const double max_service_time_error = 1.0;
 };
 
 template<typename InputType>
@@ -90,13 +91,6 @@ void AutonomicWorkerPool<InputType>::run() {
 
     analytics->num_workers.emplace_back(this->num_workers, 0);
     last_change = analytics->farm_start_time;
-
-    // compute the ssx since it will never change
-    ssx = 0.0;
-    auto x_avg = service_time_window_size / 2.0;
-    for (int x_i = 0; x_i < service_time_window_size; ++x_i) {
-        ssx += (x_i - x_avg) * (x_i - x_avg);
-    }
 }
 
 template<typename InputType>
@@ -113,13 +107,16 @@ template<typename InputType>
 void AutonomicWorkerPool<InputType>::onNewServiceTime(double current_service_time) {
     // update the window
     START(now);
-    service_time_window.push_back(current_service_time);
-    service_time_sum += current_service_time;
+    auto current_time = ELAPSED(analytics->farm_start_time, now, std::chrono::milliseconds);
+    service_time_window.emplace_back(current_service_time, current_time);
+    window_service_time_sum += current_service_time;
+    window_elapsed_time_sum += (double) current_time;
     // ensure the window has the minimum number of elements
     if (service_time_window.size() <= service_time_window_size) return;
 
-    // remove the oldest element from the window and lower the service time sum
-    service_time_sum -= service_time_window.front();
+    // remove the oldest element from the window and lower the service time sum and the time sum
+    window_service_time_sum -= service_time_window.front().first;
+    window_elapsed_time_sum -= service_time_window.front().second;
     service_time_window.pop_front();
 
     // if the service time is near to the target with a maximum of max_service_time_error error, then the current number
@@ -133,13 +130,17 @@ void AutonomicWorkerPool<InputType>::onNewServiceTime(double current_service_tim
     // but if we already did it previously, we need to check if the previous change is having a good impact. We do it
     // by looking at the slope of the service time function. To compute the slope, we perform linear regression.
 
-    double sxy = 0.0;
-    double service_time_avg = service_time_sum / service_time_window.size();
-    for (int x_i = 0; x_i < service_time_window.size(); ++x_i) {
-        sxy += (x_i - (service_time_window.size() / 2.0)) * (service_time_window[x_i] - service_time_avg);
+    double sxy = 0.0, ssx = 0.0;
+    double service_time_avg = window_service_time_sum / service_time_window.size();
+    double time_avg = window_elapsed_time_sum / service_time_window.size();
+    for (auto &svt : service_time_window) {
+        auto service_time_i = svt.first;
+        auto time_i = (double) svt.second;
+        sxy += (time_i - time_avg) * (service_time_i - service_time_avg);
+        ssx += (time_i - time_avg) * (time_i - time_avg);
     }
 
-    double curr_slope = ssx / sxy;
+    double curr_slope = sxy / ssx;
 
     // if it is below target but rising, then the previous change is having a good impact
     if (current_service_time < target_service_time - max_service_time_error && curr_slope > 1) return;
