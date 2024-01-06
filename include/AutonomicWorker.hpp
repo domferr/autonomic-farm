@@ -20,7 +20,7 @@ public:
     void notify_eos() override;
     void pause();
     void unpause();
-    void setAsReference(std::atomic<size_t> *atomic_worker_service_time);
+    void setAsReference(std::atomic<double> *atomic_worker_service_time);
 
 protected:
     void node_fun() override;
@@ -30,11 +30,11 @@ protected:
     std::mutex pause_mutex;
     bool is_paused = false;
     OnExitFunType onExitFun;
-    std::atomic<size_t> *atomic_worker_service_time = nullptr;
+    std::atomic<double> *atomic_worker_service_time = nullptr;
 };
 
 template<typename InputType>
-void AutonomicWorker<InputType>::setAsReference(std::atomic<size_t> *new_atomic_worker_service_time) {
+void AutonomicWorker<InputType>::setAsReference(std::atomic<double> *new_atomic_worker_service_time) {
     this->atomic_worker_service_time = new_atomic_worker_service_time;
 }
 

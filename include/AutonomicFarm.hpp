@@ -29,6 +29,8 @@ AutonomicFarm<InputType, OutputType>::AutonomicFarm(size_t num_workers, size_t m
     );
     this->gatherer = new AutonomicGatherer<InputType, OutputType>(sendOutFun, &this->analytics, autonomic_pool);
     this->workers_pool = autonomic_pool;
+    // we already know the current number of workers
+    this->analytics.num_workers.emplace_back(num_workers, 0);
 }
 
 

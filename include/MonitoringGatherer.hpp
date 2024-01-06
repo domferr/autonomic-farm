@@ -4,6 +4,7 @@
 
 #include "ThreadedNode.hpp"
 #include "trace.hpp"
+#include "utimer.hpp"
 #include "MonitoredFarm.hpp"
 #include "FarmAnalytics.hpp"
 
@@ -45,6 +46,7 @@ void MonitoringGatherer<OutputType>::onValue(OutputType& value) {
     this->onValueFun(value);
     // get the time elapsed from the beginning of the farm computation
     double global_elapsed = ELAPSED(analytics->farm_start_time, now, std::chrono::milliseconds);
+
     // compute the number of tasks gathered now by increasing the number of tasks gathered before
     auto global_tasks_gathered = throughput_window.front().first + 1;
     // add current measurement into the window
