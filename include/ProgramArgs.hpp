@@ -20,7 +20,7 @@
 #define DEFAULT_MIN_NUM_WORKERS 2
 #define DEFAULT_MAX_NUM_WORKERS 32
 #define DEFAULT_STREAM_SIZE 300
-#define DEFAULT_TARGET_SERVICE_TIME 8.0
+#define DEFAULT_TARGET_SERVICE_TIME 0
 #define DEFAULT_SERVICE_TIME_MS std::vector<size_t>{ 8L }
 #define DEFAULT_ARRIVAL_TIME_MS std::vector<size_t>{ 5L }
 
@@ -76,7 +76,7 @@ program_args program_args::build(int argc, char* argv[]) {
             last_flag = arg;
             flags_to_values[last_flag] = {};
         } else {
-            flags_to_values[last_flag].push_back(atoi(arg.data()));
+            flags_to_values[last_flag].push_back(std::stoi(arg.data()));
         }
     }
 
@@ -84,7 +84,7 @@ program_args program_args::build(int argc, char* argv[]) {
     GET_ARG(size_t, min_num_workers, flags_to_values, MIN_NUM_WORKERS_FLAG, DEFAULT_MIN_NUM_WORKERS)
     GET_ARG(size_t, max_num_workers, flags_to_values, MAX_NUM_WORKERS_FLAG, DEFAULT_MAX_NUM_WORKERS)
     GET_ARG(size_t, stream_size, flags_to_values, STREAM_SIZE_FLAG, DEFAULT_STREAM_SIZE)
-    GET_ARG(double, required_service_time, flags_to_values, TARGET_SERVICE_TIME_FLAG, DEFAULT_TARGET_SERVICE_TIME)
+    GET_ARG(double, target_service_time, flags_to_values, TARGET_SERVICE_TIME_FLAG, DEFAULT_TARGET_SERVICE_TIME)
 
     auto service_times = flags_to_values.contains(SERVICE_TIME_FLAG) ? flags_to_values[SERVICE_TIME_FLAG]:DEFAULT_SERVICE_TIME_MS;
     if (service_times.size() > stream_size) service_times.resize(stream_size);
@@ -92,7 +92,7 @@ program_args program_args::build(int argc, char* argv[]) {
     auto arrival_times = flags_to_values.contains(ARRIVAL_TIME_FLAG) ? flags_to_values[ARRIVAL_TIME_FLAG]:DEFAULT_ARRIVAL_TIME_MS;
     if (service_times.size() > stream_size) service_times.resize(stream_size);
 
-    return { num_workers, min_num_workers, max_num_workers, required_service_time, stream_size, service_times, arrival_times };
+    return { num_workers, min_num_workers, max_num_workers, target_service_time, stream_size, service_times, arrival_times };
 }
 
 #define NUMBER_OF_DIGITS(integer) (integer == 0 ? 1:(int) std::log10((double) (integer)) + 1)

@@ -2,6 +2,7 @@
 #define AUTONOMICFARM_AUTONOMICWORKER_HPP
 
 
+#include <chrono>
 #include "ThreadedNode.hpp"
 #include "trace.hpp"
 
@@ -19,6 +20,7 @@ public:
     void notify_eos() override;
     void pause();
     void unpause();
+    void setAsReference(std::atomic<size_t> *atomic_worker_service_time);
 
 protected:
     void node_fun() override;
@@ -28,7 +30,13 @@ protected:
     std::mutex pause_mutex;
     bool is_paused = false;
     OnExitFunType onExitFun;
+    std::atomic<size_t> *atomic_worker_service_time = nullptr;
 };
+
+template<typename InputType>
+void AutonomicWorker<InputType>::setAsReference(std::atomic<size_t> *new_atomic_worker_service_time) {
+    this->atomic_worker_service_time = new_atomic_worker_service_time;
+}
 
 /**
  * Function to send a value to an autonomic worker. However, this function won't send anything to the worker since the
@@ -68,7 +76,12 @@ void AutonomicWorker<InputType>::node_fun() {
 
         auto next_opt = main_stream->next();
         if (next_opt.has_value()) {
+            START(start_time);
             this->onValue(next_opt.value());
+            START(end_time);
+            if (atomic_worker_service_time != nullptr) {
+                *atomic_worker_service_time = ELAPSED(start_time, end_time, std::chrono::milliseconds);
+            }
         } else {
             break;
         }
