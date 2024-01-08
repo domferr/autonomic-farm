@@ -47,6 +47,8 @@ public:
      */
     std::optional<InputType> next();
 
+    std::optional<InputType> next(bool* is_eos);
+
 private:
     std::mutex mutex;
     std::condition_variable cond_empty;
@@ -101,6 +103,21 @@ std::optional<InputType> Stream<InputType>::next() {
     cond_empty.wait(lock, [&]{ return eosFlag || !queue.empty(); });
     if (eosFlag && queue.empty()) return {};
 
+    auto next_elem = std::optional<InputType>{std::move(queue.front())};
+    queue.pop_front();
+
+    return next_elem;
+}
+
+template<typename InputType>
+std::optional<InputType> Stream<InputType>::next(bool* is_eos) {
+    std::unique_lock<std::mutex> lock(mutex);
+
+    if (queue.empty()) {
+        *is_eos = eosFlag;
+        return {};
+    }
+    *is_eos = false;
     auto next_elem = std::optional<InputType>{std::move(queue.front())};
     queue.pop_front();
 

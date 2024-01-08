@@ -43,6 +43,8 @@ public:
      */
     void send(InputType& value) override;
 
+    void send_to(InputType& value, int index);
+
 protected:
     NodePool() = default;
 
@@ -101,6 +103,12 @@ void NodePool<InputType, NodeType>::send(InputType &value) {
     TRACEF("Send to worker %lu (round-robin)", worker_index);
     nodes[worker_index].send(value);
     worker_index = (worker_index+1) % nodes.size();
+}
+
+template<typename InputType, typename NodeType>
+void NodePool<InputType, NodeType>::send_to(InputType &value, int index) {
+    TRACEF("Send to worker %lu", index);
+    nodes[index].send(value);
 }
 
 

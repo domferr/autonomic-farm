@@ -21,7 +21,7 @@ public:
      * ensuring mutual exclusion
      * @return the analytics obtained during the farm execution
      */
-    farm_analytics wait_and_analytics();
+    virtual farm_analytics wait_and_analytics();
 
 protected:
     MonitoredFarm() = default;
