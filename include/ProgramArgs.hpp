@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <iomanip>
 
+#define HELP_FLAG "--help"
 #define WORKERS_FLAG "-w"
 #define MIN_NUM_WORKERS_FLAG "-minw"
 #define MAX_NUM_WORKERS_FLAG "-maxw"
@@ -26,6 +27,8 @@
 
 struct program_args {
 public:
+    // print usage
+    bool help;
     // initial number of workers
     size_t num_workers;
     // minimum number of workers
@@ -41,6 +44,20 @@ public:
     // arrival times of stream's items
     std::vector<size_t> arrivalTimes;
 
+    static void usage(std::ostream &os, char* argv[]) {
+        os << argv[0] << " [OPTIONS]" << std::endl;
+
+        os << "Options:" << std::endl;
+        os << "  " << WORKERS_FLAG << " arg                Number of workers (default: " << DEFAULT_NUM_WORKERS << ")" << std::endl;
+        os << "  " << MIN_NUM_WORKERS_FLAG << " arg             Minimum number of workers (default: " << DEFAULT_MIN_NUM_WORKERS << ")" << std::endl;
+        os << "  " << MAX_NUM_WORKERS_FLAG << " arg             Maximum number of workers (default: " << DEFAULT_MAX_NUM_WORKERS << ")" << std::endl;
+        os << "  " << STREAM_SIZE_FLAG << " arg          Number of input tasks in the stream (default: " << DEFAULT_STREAM_SIZE << ")" << std::endl;
+        os << "  " << SERVICE_TIME_FLAG << " arg         Service time values for tasks (space-separated) (default: " << DEFAULT_SERVICE_TIME_MS[0] << " ms)" << std::endl;
+        os << "  " << ARRIVAL_TIME_FLAG << " arg         Arrival time values for tasks (space-separated) (default: " << DEFAULT_ARRIVAL_TIME_MS[0] << " ms)" << std::endl;
+        os << "  " << TARGET_SERVICE_TIME_FLAG << " arg          Target service time (default: None)" << std::endl;
+        os << "  " << HELP_FLAG << "                Show this usage";
+    }
+
     /**
      * Build program_args from program arguments.
      */
@@ -52,10 +69,10 @@ public:
     friend std::ostream &operator<<(std::ostream &os, const program_args &args);
 
 private:
-    program_args(size_t numWorkers, size_t minNumWorkers, size_t maxNumWorkers, double reqServiceTime, size_t streamSize,
+    program_args(bool help, size_t numWorkers, size_t minNumWorkers, size_t maxNumWorkers, double reqServiceTime, size_t streamSize,
                  const std::vector<size_t> &serviceTimes, const std::vector<size_t> &arrivalTimes)
-    : num_workers(numWorkers), min_num_workers(minNumWorkers), max_num_workers(maxNumWorkers), target_service_time(reqServiceTime),
-      stream_size(streamSize), serviceTimes(serviceTimes), arrivalTimes(arrivalTimes) {}
+    : help(help), num_workers(numWorkers), min_num_workers(minNumWorkers), max_num_workers(maxNumWorkers),
+    target_service_time(reqServiceTime), stream_size(streamSize), serviceTimes(serviceTimes), arrivalTimes(arrivalTimes) {}
 
     static void proportions_to_stream(std::ostream &os, size_t stream_size, const std::vector<size_t>& data, std::string_view label);
 };
@@ -71,10 +88,16 @@ program_args program_args::build(int argc, char* argv[]) {
     std::string_view last_flag = "beginning_with_no_flag"; // first arguments, not preceded by a flag
     std::unordered_map<std::string_view, std::vector<size_t>> flags_to_values;
 
+    bool help = false;
+
     for (const auto& arg: args) {
         if (arg.starts_with('-')) {
-            last_flag = arg;
-            flags_to_values[last_flag] = {};
+            if (arg == HELP_FLAG) {
+                help = true;
+            } else {
+                last_flag = arg;
+                flags_to_values[last_flag] = {};
+            }
         } else {
             flags_to_values[last_flag].push_back(std::stoi(arg.data()));
         }
@@ -92,7 +115,7 @@ program_args program_args::build(int argc, char* argv[]) {
     auto arrival_times = flags_to_values.contains(ARRIVAL_TIME_FLAG) ? flags_to_values[ARRIVAL_TIME_FLAG]:DEFAULT_ARRIVAL_TIME_MS;
     if (service_times.size() > stream_size) service_times.resize(stream_size);
 
-    return { num_workers, min_num_workers, max_num_workers, target_service_time, stream_size, service_times, arrival_times };
+    return { help, num_workers, min_num_workers, max_num_workers, target_service_time, stream_size, service_times, arrival_times };
 }
 
 #define NUMBER_OF_DIGITS(integer) (integer == 0 ? 1:(int) std::log10((double) (integer)) + 1)

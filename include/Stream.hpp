@@ -52,7 +52,6 @@ public:
 private:
     std::mutex mutex;
     std::condition_variable cond_empty;
-    std::condition_variable cond_eos;
     std::deque<InputType> queue;
     bool eosFlag = false;
 };
@@ -94,7 +93,6 @@ void Stream<InputType>::eos() {
         eosFlag = true;
     }
     cond_empty.notify_all();
-    cond_eos.notify_all();
 }
 
 template<typename InputType>

@@ -7,6 +7,11 @@
 
 int main(int argc, char *argv[]) {
     program_args args = program_args::build(argc, argv);
+    if (args.help) {
+        program_args::usage(std::cout, argv);
+        std::cout << std::endl;
+        return 0;
+    }
     std::cout << args << std::endl;
 
     auto workerfun = [](auto *val) {

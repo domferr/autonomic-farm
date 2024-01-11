@@ -14,11 +14,11 @@
 class farm_analytics {
 public:
     std::chrono::system_clock::time_point farm_start_time; // timepoint when the farm's run method was called
-    std::vector<std::pair<double, long>> throughput; // pair <timestamp, moving average throughput value>
-    std::vector<std::pair<double, long>> throughput_points; // pair <timestamp, throughput value>
-    std::vector<std::pair<double, long>> service_time; // pair <timestamp, moving average service time value>
-    std::vector<std::pair<double, long>> service_time_points; // pair <timestamp, service time value>
-    std::vector<std::pair<size_t, long>> num_workers; // pair <timestamp, number of nodes>
+    std::vector<std::pair<double, long>> throughput; // pair <moving average throughput value, timestamp>
+    std::vector<std::pair<double, long>> throughput_points; // pair <throughput value, timestamp>
+    std::vector<std::pair<double, long>> service_time; // pair <moving average service time value, timestamp>
+    std::vector<std::pair<double, long>> service_time_points; // pair <service time value, timestamp>
+    std::vector<std::pair<size_t, long>> num_workers; // pair <number of nodes, timestamp>
     std::vector<long> arrival_time;
 
     void throughput_to_file(const char* root_dir, const char* basename, program_args &args) {
